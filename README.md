@@ -1,5 +1,5 @@
 # Summer 2023 Research Project
-(Currently Unfinished)
+_Currently Unfinished_
 
 Compares tradeoffs between machine learning methods and a [taylor series approximation](https://mathworld.wolfram.com/TaylorSeries.html]) when determining the perturbed interatomic potential of diatomic molecules. 
 
