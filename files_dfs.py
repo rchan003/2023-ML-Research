@@ -2,10 +2,16 @@ from Universal import*
 # k_force data: https://www.sciencedirect.com/science/article/abs/pii/S1386142515302808?via%3Dihub
 
 ### DATA CREATION FUNCTIONS ###
-def truncate_y(df, max_y='largest', min_y=-1, remove_full_entry=False, y_col='V [kcal/mol]', entry_col = 'encoded name'):
+def truncate_y(df, max_y='largest', min_y=-1, remove_full_entry=False, y_col='V [kcal/mol]', entry_col = 'molec'):
     '''
-    Returns dataframe and where y column is truncated where min_y < y < max_y
-    if remove_full_entry == True then that molecules entire entry is deleted
+    Returns dataframe truncated st values in y_col in range (min_y, max_y)
+    
+    Parameters: 
+        max_y (str or float): (default = 'largest')
+            'largest': 
+            
+        remove_full_entry:
+            True then that molecules entire entry is deleted
     '''
     if type(max_y) == str:
         max_y = np.max(df[y_col].values.tolist())
@@ -27,9 +33,42 @@ def truncate_y(df, max_y='largest', min_y=-1, remove_full_entry=False, y_col='V 
 
 def format_entries(df, entry_col='molec', comparison_col='V [kcal/mol]', sort_by='max', ascending=False, add_scores_col=True, display_final_order=False, sort_dict={'max': np.max, 'min': np.min, 'mean': np.mean}):
     '''
-    sort_by: 'max', 'min', 'mean'
-        (takes values from the comparison col specific the specific entry )
-    order: 'descending', 'ascending'
+    Returns dataframe with each molecule sorted based off an assigned score
+
+    Parameters:
+        df (pd.DataFrame):
+            dataframe of unique entires that contain 1+ datapoint(s)  
+            
+        entry_col (str): (default = 'molec')
+            column with names of entries to score 
+
+        comparison_col (str): (default = 'V [kcal/mol]')
+            column with values to use for scoring
+
+        sort_by (str): (default = 'max')
+            method used to assign a score to an entry, with options given by sort_dict
+            default options:
+                'max': entry score =  max(vals in comparison_col)
+                'min': entry score =  min(vals in comparison_col)
+                'mean': entry score = mean(vals in comparison_col)
+
+        ascending (bool): (default = False)
+            False: Sorts entries by score in descending order 
+            True: Sorts entries by score in ascending order
+
+        add_scores_col (bool): (default = True)
+            True: Creates new column 'Score (<sort_by> <comparison_vol>)' & adds adds in score for every row corrosponding to entry score
+            False: No new column created, sorted dataframe returned
+
+        display_final_order (bool): (default = False)
+            True: Prints entries in new order 
+            False: Nothing printed 
+
+        sort_dict (dict): (default = {'max': np.max, 'min': np.min, 'mean': np.mean})
+            names & functions availiable for sort_by parameter
+                Keys: callable name for sort_by
+                Values: functions to assign score using values in comparison_col
+
     '''
     # setting sorting funciton 
     if sort_by in sort_dict:
@@ -70,6 +109,9 @@ def format_entries(df, entry_col='molec', comparison_col='V [kcal/mol]', sort_by
     return df_new
 
 def score_sort_list_dataframes(scores, dfs, ascending=False):
+    '''
+    Returns list of dataframes sorted by parallel list of scores
+    '''
     # Use sorted() with enumerate() to get sorted indices
     sorted_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=not ascending)
     sorted_scores = [scores[i] for i in sorted_indices]
@@ -80,6 +122,9 @@ def score_sort_list_dataframes(scores, dfs, ascending=False):
     return dfs_sorted
 
 def bucket_score_morse(fxns_df):
+    '''
+    Gives each molecule a score then splits data into buckets based on that score 
+    '''
     molecules = fxns_df['molec'].values.tolist()
     a0 = fxns_df['ao'].values.tolist()
     a1 = fxns_df['a1'].values.tolist()
@@ -103,6 +148,9 @@ def bucket_score_morse(fxns_df):
     return scores 
 
 def create_Xy_matrix(X, y, num_molecs=106, N_per_molec=1000):
+    '''
+    Returns matrix of linear X & y data 
+    '''
     # Setup
     X = np.reshape(X, (num_molecs, N_per_molec))
     y = np.reshape(y, (num_molecs, N_per_molec))
@@ -110,9 +158,34 @@ def create_Xy_matrix(X, y, num_molecs=106, N_per_molec=1000):
 
 def extract_N_points(df_full, N = 'all', return_full_dataframe=True, sep_range=(0.001, 4), target_col='', target_vals=[], scaled=False, X_col='sep [A]', molec_col='molec', y_col='V [kcal/mol]'):
     '''
-    returns dataframe where target col == target val, only for N values of sep [A] within sep_range
-    basically slices dataframe twice (once to reduce sep and again to reduce just to target
-    if target not updated then returns dataframe for 
+    Returns truncated dataframe where each molecule has N data points within sep_range 
+    
+    Parameters: 
+        N (str or int): (default = 'all')
+            'all' (str): all datapoints extracted
+            type(int): N evenly spaced datapoints extracted for each molecule
+        
+        target_<col/vals>: (default = no targeting)
+            If not default: returns entries where target_col entry is in target_vals
+                target_col (str): Name of column to search, 
+                target_vals (list): List of values to find in target_col
+            
+        return_full_dataframe (bool): (default = True)
+            True: returns points in a data frame
+            False: returns tuple of X & y matrices)
+            
+        scaled (bool): (default = False)
+            True: scales X data with StandardScaler()
+            False: does not scale X with StandardScaler()
+            
+        molec_col (str): (default = 'molec')
+            name of column containing empirical formulas
+            
+        X_col (str): (default = 'sep [A]')
+            name of column containing X data 
+            
+        y_col (str): (default = 'V [kcal/mol]')
+            name of column containing y data 
     '''
     molecules = list(set(df_full[molec_col].values.tolist()))
 
