@@ -4,28 +4,39 @@ from Universal import*
 ### DATA CREATION FUNCTIONS ###
 def truncate_y(df, max_y='largest', min_y=-1, remove_full_entry=False, y_col='V [kcal/mol]', entry_col = 'molec'):
     '''
-    Returns dataframe truncated st values in y_col in range (min_y, max_y)
+    Returns dataframe truncated st values in y_col E(min_y, max_y)
     
     Parameters: 
-        max_y (str or float): (default = 'largest')
-            'largest': 
+        max_y (str or float/int): (default = 'largest')
+            'largest': upper limit = largest value in y_col
+
+        min_y (float/int): (default = -1)
             
-        remove_full_entry:
-            True then that molecules entire entry is deleted
+        remove_full_entry (bool): (default = False)
+            True: removes entire entry (ie molecule) if any values in y_col DNE(min_y, max_y)
+            False: only removes rows where values in y_col DNE(min_y, max_y)
+
+        y_col (str): (default = 'V [kcal/mol]')
+            column to truncate
+
+        entry_col (str): (default = 'molec')
+            column containing names of the unique entries
     '''
+    # finds largest y value
     if type(max_y) == str:
         max_y = np.max(df[y_col].values.tolist())
         #print(f'Max value from {y_col}: {max_y}')
         
-    #dropping values
+    # truncating y values
     df_trunc = df[(df[y_col] > min_y) & (df[y_col] < max_y)]
     df_removed = df[(df[y_col] <= min_y) | (df[y_col] >= max_y)]
-
     entries_removed = df_removed[entry_col].values.tolist()
-    
+
+    # removes full entries
     if remove_full_entry == True:
         df_trunc = df_trunc[~df_trunc[entry_col].isin(entries_removed)] 
 
+    # resetting indices
     df_trunc = df_trunc.reset_index(drop=True)
     df_removed = df_removed.reset_index(drop=True)
 
@@ -68,7 +79,6 @@ def format_entries(df, entry_col='molec', comparison_col='V [kcal/mol]', sort_by
             names & functions availiable for sort_by parameter
                 Keys: callable name for sort_by
                 Values: functions to assign score using values in comparison_col
-
     '''
     # setting sorting funciton 
     if sort_by in sort_dict:
@@ -102,7 +112,7 @@ def format_entries(df, entry_col='molec', comparison_col='V [kcal/mol]', sort_by
     df_new = df_new.reset_index(drop=True)
     entry_sorted = np.unique(df[entry_col].values.tolist())
 
-    # final steps
+    # diplaying order
     if display_final_order == True:
         matrix_print('Final entry order:', entry_sorted, num_rows=len(entry_sorted))
 
@@ -111,45 +121,35 @@ def format_entries(df, entry_col='molec', comparison_col='V [kcal/mol]', sort_by
 def score_sort_list_dataframes(scores, dfs, ascending=False):
     '''
     Returns list of dataframes sorted by parallel list of scores
+
+    Parameters:
+        scores (list): scores with each element corrosponding to same index element in dfs
+            elements: str (alphabetical order) or float/in (numerical order)
+            
+        dfs (list): elements of type pd.DataFrame
+
+        ascending (bool): (default = False)
+            True: sorts dfs in ascending order based on scores 
+            False: sorts dfs in descending order based on scores  
     '''
-    # Use sorted() with enumerate() to get sorted indices
+    # checking length
+    if len(scores) != len(dfs):
+        print('Need to pass same number of scores and dataframes\nReturning original DataFrame list')
+        return dfs
+    
+    # finding sorted indicies
     sorted_indices = sorted(range(len(scores)), key=lambda i: scores[i], reverse=not ascending)
     sorted_scores = [scores[i] for i in sorted_indices]
 
-    # now sorting the dataframes 
+    # sorting the dataframes 
     dfs_sorted = [dfs[i] for i in sorted_indices]
 
     return dfs_sorted
-
-def bucket_score_morse(fxns_df):
-    '''
-    Gives each molecule a score then splits data into buckets based on that score 
-    '''
-    molecules = fxns_df['molec'].values.tolist()
-    a0 = fxns_df['ao'].values.tolist()
-    a1 = fxns_df['a1'].values.tolist()
-    a2 = fxns_df['a2'].values.tolist()
-
-    # Define bucket boundaries (increased the outer edges)
-    a0_edges = [1e1, 1e4, 1e6, 1e8, 1e11]
-    a1_edges = [-6e-6, -5e-4, -5e-3, -5e-2, -5]
-    a2_edges = [0, -0.5, -1, -3, -7]
-
-    # Determine bucket indices for each value
-    a0_indices = np.digitize(a0, a0_edges, right=True)
-    a1_indices = np.digitize(a1, a1_edges, right=True)
-    a2_indices = np.digitize(a2, a2_edges, right=True)
-
-    scores = []
-    for molec, idx0, idx1, idx2 in zip(molecules, a0_indices, a1_indices, a2_indices):
-        print(f"{molec} is in Bucket {idx0, idx1, idx2}")
-        scores.append(idx0+idx1+idx2)
-
-    return scores 
+    
 
 def create_Xy_matrix(X, y, num_molecs=106, N_per_molec=1000):
     '''
-    Returns matrix of linear X & y data 
+    Returns matrix of X & y data 
     '''
     # Setup
     X = np.reshape(X, (num_molecs, N_per_molec))
@@ -227,45 +227,88 @@ def extract_N_points(df_full, N = 'all', return_full_dataframe=True, sep_range=(
 
 def create_path(directory, base_name='trial', count_files=True, extension='/'):
     '''
-    Creates desired path if it doesn't exist and returns string of path (format: directory + final_name + extension)
-    Count_files
-        True: final_name = base_name + f'_{number files in directory}'
-        False: final_name = base_name
+    Returns path of file/folder created in directory
+    
+    Parameters:
+        directory (str): 
+            path of directory to create path, if directory DNE then it is created
+
+        base (str): (default = 'trial')
+            base name to give to new file/folder
+            ex) '/path/given/by/directory/trial/'
+        
+        count_files (bool): (default = True)
+            True: counts number of files in directory & adds number to base_name 
+            ex) '/path/given/by/directory/trial_3/'
+            
+        extension (str)" (default = '/')
+            extention to add to new path, if '/' then creates a folder 
     '''
+    # removes '/' from end of directory path
     if directory.endswith('/'):
         directory = directory[:-1]
 
+    # creates path if it DNE
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    if os.path.isdir(directory):
-        file_count = sum(1 for item in os.listdir(directory) if os.path.isfile(os.path.join(directory, item)))
-        print(f"Number of files in the directory: {file_count}")
+    # new path
+    new_path = directory+f'/{base_name}'
 
-    file_count = len(next(os.walk(directory))[1]) + 1
-    save_folder = directory+f'/{base_name}_{file_count}'
-    os.makedirs(save_folder)
-    save_folder = save_folder + '/'
+    # counts number of files in directory
+    if count_files:
+        file_count = len(next(os.walk(directory))[1]) + 1
+        new_path = new_path + f'_{file_count}'
 
-    return save_folder
+    # creating path
+    os.makedirs(new_path)
+    new_path = new_path + '/'
+
+    return new_path
 
 
-def deep_find_files(start_dir, name_prefix=''):
+def deep_find_files(start_dir, name='', extension='.txt'):
+    '''
+    Returns list of all files in start_dir & its subdirectories named <name> with extention <extension>
+
+    Parameters:
+        start_dir (str): path of directory to search for files 
+
+        name (str): name of target files
+
+        extension (str): (default = '.txt')
+            extension to target files 
+    '''
+    
     matched_files = []
     for root, _, files in os.walk(start_dir):
-        for filename in fnmatch.filter(files, f"{name_prefix}*.txt"):
+        for filename in fnmatch.filter(files, f"{name}*{extension}"):
             matched_files.append(os.path.join(root, filename))
     return matched_files
 
 
-def load_dataframe(folder_path='', file_name='', file_path='', head_lines=None, headers=None, sep='\t', dtypes=None):
-    ''' Returns pandas dataframe from file
-    head_lines = number of lines for header (typically None)
-    is_range = None: return specified values for conditions 
-    is_range != None && conditions == [a,b]: return values within range [a,b] inclusive 
-    headers == list of col names: assumes first row of dataframe are NOT column names
-    headers == None: assumes first row of dataframe are col names 
-    cols_desired & conditions MUST be lists
+def load_dataframe(folder_path='', file_name='', file_path='', sep='\t', head_lines=None, custom_headers=None, custom_dtypes=None):
+    ''' 
+    Returns pd.DataFrame created from file given by a path
+
+    Note: can pass file path either directly or indirectly using following params
+        direct: <file_path>
+        indirect: <folder_path> + <file_name>
+
+    Parameters:
+        head_lines (None or int): (default = None)
+            number of empty/useless lines to remove at start of file, excluding line containing the column headers
+            
+        custom_headers (None or list of str): (default = None)
+            None: automatically assigns column names using first row of DataFrame
+            list of str: manually assigns column names 
+            
+        sep (str): (default = '/t')
+            file delimiter
+
+        custom_dtypes (None or list of types): (default = None)
+            None: automatically assigns data type of columns
+            list of tyeps: manually assigns data types of columns
     '''
     if file_path == '':
         data = pd.read_csv(folder_path+file_name, header=head_lines, sep=sep)
@@ -273,20 +316,21 @@ def load_dataframe(folder_path='', file_name='', file_path='', head_lines=None, 
         data = pd.read_csv(file_path, header=head_lines, sep=sep)
 
     # naming columns 
-    if headers != None:
-        data.columns = headers
-    elif headers == None:
+    if custom_headers != None:
+        data.columns = custom_headers
+        headers = custom_headers
+    elif custom_headers == None:
         headers = (data.iloc[0]).values.tolist()
         data.columns = headers
         data = data[1:]
 
     # if all dtypes specified 
-    if type(dtypes) == list:
+    if type(custom_dtypes) == list:
         for i in range(len(headers)):
-            data[headers[i]] = data[headers[i]].values.astype(dtypes[i])
+            data[headers[i]] = data[headers[i]].values.astype(custom_dtypes[i])
     # if only 1 dtype given (ie make all str)
-    elif type(dtypes) != list and dtypes != None:
-        data[headers] = data[headers].values.astype(dtypes)
+    elif type(custom_dtypes) != list and custom_dtypes != None:
+        data[headers] = data[headers].values.astype(custom_dtypes)
     # if nothing given then make all possible columns float64
     else:
         data = data.apply(pd.to_numeric, errors="ignore")
@@ -360,15 +404,15 @@ def df_from_dir(search_dir, save_dir='Desktop', file_name = '*', file_ext='.txt'
     return df, len(files)
 
 
-def merge_dfs(dfs, group_rows = False, group_col = ['molec', 'molecules']):
+def merge_dfs(dfs, group_rows = False, group_cols = ['molec', 'molecules']):
     '''
     Merge list dataframes into one dataframe, automatically combining columns with common names
     Note: currently assume all dataframes have same columns and rows 
 
     Parameters:
         dfs (pd.DataFrame list):    List of pandas dataframes. Columns within each df should be unique.
-        comb_rows (boolean):        Combines rows with duplicate values in comb_idx.
-        comb_idx (str list):        List of possible column names to combine along. 
+        group_rows (boolean):        Combines rows with duplicate values in comb_idx.
+        group_cols (str list):        List of possible column names to combine along. 
     
     Returns:
         df (pd.DataFrame):          Merged dataframe
@@ -380,22 +424,21 @@ def merge_dfs(dfs, group_rows = False, group_col = ['molec', 'molecules']):
     df = pd.concat(dfs, axis=0, join='outer')
     if group_rows == False: return df
 
-    # Grouping !!!!!NOT DONE
-    group_col = list(set(group_col) & set(df.columns.values.tolist()))[0]
+    # Grouping --> NEED TO FIX
+    group_cols = list(set(group_cols) & set(df.columns.values.tolist()))[0]
 
     return df
 
 
 def create_Xy_df(fxns_df, X_list):
     '''
-    Returns Dataframe with index & column[0] = X 
-    Remaining columns = Y(x) for specific molecule 
+    Returns Dataframe with column[0] = X data
+    Remaining columns = y(X) for specific molecule 
     '''
     molecules = fxns_df['molec'].tolist()
     functions = fxns_df['sym fxn'].tolist()
 
     headers = ['X'] + molecules
-
     lists = [X_list]
 
     r = sp.Symbol('r')
